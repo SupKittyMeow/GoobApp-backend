@@ -2,10 +2,11 @@
   "name": "goobapp-backend",
   "version": "0.0.1",
   "description": "The backend for goobapp, obviously",
-  "main": "server.ts",
+  "main": "dist/server.ts",
   "scripts": {
-    "start": "node server.ts",
-    "dev": "nodemon server.ts"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon --watch server.ts --exec ts-node server.ts"
   },
   "author": "SupKittyMeow",
   "license": "MIT",
