@@ -1,15 +1,16 @@
 {
   "name": "goobapp-backend",
-  "version": "1.0.0",
-  "description": "temp though will use thing later",
-  "main": "app.js",
+  "version": "0.0.1",
+  "description": "The backend for goobapp, obviously",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "SupKittyMeow",
+  "license": "MIT",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "nodemon": "^3.1.11"
   }
 }
