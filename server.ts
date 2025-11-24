@@ -11,10 +11,10 @@ const app = express(); // Create a new express app instance
 const http = require('http'); // Get the HTTP package
 const server = http.createServer(app); // Create an HTTP server using the new express app as its handler
 const { Server } = require("socket.io") // Get the Socket.IO package
-const io = new Server(server, {cors: {
+const io = new Server(server, process.env.NODE_ENV !== 'production' ? {cors: {
     origin: "http://localhost:5173"
   }
-}); // Create a new Socket.IO instance using the created HTTP server
+} : {cors: {}}); // Create a new Socket.IO instance using the created HTTP server
 
 function getRandomInt(max: number) { // temp
   return Math.floor(Math.random() * max);
@@ -23,7 +23,7 @@ function getRandomInt(max: number) { // temp
 
 io.on('connection', (socket: Socket) => { // Receive this when a user has ANY connection event to the Socket.IO server
   console.log('a user connected');
-  socket.emit('get user id', getRandomInt(100000)) // TODO: login flow. this is temporary
+  socket.emit('get user id', getRandomInt(100000)) // TODO: login flow. this is temp
   socket.on('message sent', (msg: ChatMessage) => { // Received when the "message sent" gets called from a client
     console.log("message sent")
     io.emit('client receive message', msg); // Emit it to everyone else!
