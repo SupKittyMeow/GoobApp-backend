@@ -20,12 +20,16 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://wfdcqaqihwsilzegcknq.supabase.co'
 const supabaseKey = process.env.SUPABASE_KEY
+let usingSupabase: boolean = false
+
 if (!supabaseKey) {
   console.error("No supabase key found! Unable to continue.")
-  process.exit(1); // Exit with a non-zero code to indicate an error
+  // process.exit(1); // Exit with a non-zero code to indicate an error
 }
-const supabase = createClient(supabaseUrl, supabaseKey)
-
+else {
+  usingSupabase = true;
+  const supabase = createClient(supabaseUrl, supabaseKey)
+}
 const getRandomInt = (max: number): string => { // temp
   return (Math.floor(Math.random() * max) + 1).toString();
 }
