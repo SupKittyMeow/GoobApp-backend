@@ -13,10 +13,21 @@ const http = require('http'); // Get the HTTP package
 const server = http.createServer(app); // Create an HTTP server using the new express app as its handler
 const { Server } = require("socket.io") // Get the Socket.IO package
 
-const io = new Server(server, {cors: {  origin: "https://supkittymeow.github.io"}}); // Create a new Socket.IO instance using the created HTTP server
+const io = new Server(server, {cors: {  origin: process.env.NODE_ENV === 'production' ? [ "https://supkittymeow.github.io", "https://goobapp.org" ] : 'http://localhost:5173'}}); // Create a new Socket.IO instance using the created HTTP server
 
-function getRandomInt(max: number) { // temp
-  return Math.floor(Math.random() * max);
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = 'https://wfdcqaqihwsilzegcknq.supabase.co'
+const supabaseKey = process.env.SUPABASE_KEY
+if (!supabaseKey) {
+  console.error("No supabase key found! Unable to continue.")
+  process.exit(1); // Exit with a non-zero code to indicate an error
+}
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+const getRandomInt = (max: number): string => { // temp
+  return (Math.floor(Math.random() * max) + 1).toString();
 }
 
 const rateLimiter = new RateLimiterMemory(
