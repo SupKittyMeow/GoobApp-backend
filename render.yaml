@@ -3,7 +3,7 @@ services:
     name: goobapp-backend
     env: node
     buildCommand: npm install
-    startCommand: npm run start &
+    startCommand: npm run start
     plan: free
     autoDeploy: true
     healthCheckPath: /health
