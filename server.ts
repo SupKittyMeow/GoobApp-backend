@@ -23,18 +23,19 @@ const io = new Server(server, {
   },
 }); // Create a new Socket.IO instance using the created HTTP server
 
-import { createClient, Session } from "@supabase/supabase-js";
+import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = "https://wfdcqaqihwsilzegcknq.supabase.co";
 const supabaseKey = process.env.SUPABASE_KEY;
 let usingSupabase: boolean = false;
+let supabase: SupabaseClient;
 
 if (!supabaseKey) {
   console.error("No supabase key found!");
   // process.exit(1); // Exit with a non-zero code to indicate an error
 } else {
   usingSupabase = true;
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  supabase = createClient(supabaseUrl, supabaseKey);
 }
 
 const rateLimiter = new RateLimiterMemory({
@@ -51,6 +52,31 @@ io.on("connection", (socket: Socket) => {
   // Receive this when a user has ANY connection event to the Socket.IO server
   console.log("a user connected");
 
+  socket.on("request recent messages", async () => {
+    if (!usingSupabase) return; // Can later warn not using database but meh not right now
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .order("message_id", { ascending: false })
+      .limit(10); // Change to number of messages you want to give to the user, but PLEASE do not let the user pick aaaaaaa NOT A GOOD IDEA anyways
+
+    if (error) {
+      console.error("Could not get recent messages: " + error);
+      return;
+    }
+
+    const recentMessages: ChatMessage[] = data.map((message) => ({
+      userDisplayName: message.user,
+      userProfilePicture: message.profile_picture_snapshot,
+      userUUID: message.user_uuid,
+      messageContent: message.message_content,
+      messageTime: message.created_at,
+      messageId: message.message_id,
+    }));
+
+    socket.emit("receive recent messages", recentMessages);
+  });
+
   socket.on("message sent", async (msg: ChatMessage, session: Session) => {
     if (!session) return;
 
@@ -60,6 +86,20 @@ io.on("connection", (socket: Socket) => {
       await immediateRateLimiter.consume(session.user.id); // do this for immediate stuff (no spamming every 0.1 seconds)
       if (msg.messageContent.length <= 1001) {
         io.emit("client receive message", msg); // Emit it to everyone else!
+        if (usingSupabase) {
+          // Only insert if actually using Supabase!
+          const { error } = await supabase.from("messages").insert({
+            // Insert a message into the Supabase table
+            username_snapshot: msg.userDisplayName,
+            profile_picture_snapshot: msg.userProfilePicture,
+            user_uuid: msg.userUUID,
+            message_content: msg.messageContent,
+          });
+
+          if (error) {
+            console.error("Could not insert message: " + error);
+          }
+        }
       }
     } catch (rejRes) {
       // No available points to consume
