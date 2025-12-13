@@ -18,17 +18,19 @@ const io = new Server(server, {
     origin: [
       "https://goobapp.github.io",
       "https://goobapp.org",
-      "http://localhost:5173", // For developement
+      "http://localhost:5173", // For development
     ],
   },
 }); // Create a new Socket.IO instance using the created HTTP server
 
 import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
+import UserProfile from "./types/UserProfileObject";
 
 const supabaseUrl = "https://wfdcqaqihwsilzegcknq.supabase.co";
 const supabaseKey = process.env.SUPABASE_KEY;
 let usingSupabase: boolean = false;
 let supabase: SupabaseClient;
+let activeUsers: { [sessionId: string]: UserProfile } = {};
 
 if (!supabaseKey) {
   console.error("No supabase key found!");
@@ -50,7 +52,6 @@ const immediateRateLimiter = new RateLimiterMemory({
 
 io.on("connection", (socket: Socket) => {
   // Receive this when a user has ANY connection event to the Socket.IO server
-  console.log("a user connected");
 
   socket.on("request recent messages", async () => {
     if (!usingSupabase) return; // Can later warn not using database but meh not right now
@@ -65,16 +66,7 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
-    const recentMessages: ChatMessage[] = data.map((message) => ({
-      userDisplayName: message.username_snapshot,
-      userProfilePicture: message.profile_picture_snapshot,
-      userUUID: message.user_uuid,
-      messageContent: message.message_content,
-      messageTime: message.created_at,
-      messageId: message.message_id,
-    }));
-
-    socket.emit("receive recent messages", recentMessages);
+    socket.emit("receive recent messages", data, activeUsers);
   });
 
   socket.on("message sent", async (msg: ChatMessage, session: Session) => {
@@ -108,10 +100,23 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("disconnect", (reason) => {
-    // Called when a user is disconneted for any reason, passed along with the reason arg.
-    console.log(`User disconnected because: ${reason}`);
+  socket.on("disconnect", (reason, session: Session) => {
+    // Called when a user is disconnected for any reason, passed along with the reason arg.
+
+    const activeUser = activeUsers[session.user.id];
+    if (activeUser) {
+      io.emit("remove active user", activeUser);
+      delete activeUsers[session.user.id];
+    }
   });
+
+  socket.on(
+    "add to active users list",
+    (user: UserProfile, session: Session) => {
+      activeUsers[session.user.id] = user;
+      io.emit("new active user", user);
+    }
+  );
 });
 
 server.listen(PORT, () => {
