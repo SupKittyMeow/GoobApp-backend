@@ -113,6 +113,13 @@ io.on("connection", (socket: Socket) => {
   socket.on(
     "add to active users list",
     (user: UserProfile, session: Session) => {
+      if (!user || !session) {
+        console.warn(
+          `User or session null! User: ${user}. Session: ${session}`
+        );
+        return;
+      }
+
       activeUsers[session.user.id] = user;
       io.emit("new active user", user);
     }
