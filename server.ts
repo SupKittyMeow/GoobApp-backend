@@ -30,7 +30,7 @@ const supabaseUrl = "https://wfdcqaqihwsilzegcknq.supabase.co";
 const supabaseKey = process.env.SUPABASE_KEY;
 let usingSupabase: boolean = false;
 let supabase: SupabaseClient;
-let activeUsers: { [sessionId: string]: UserProfile } = {};
+let activeUsers: { [socketId: string]: UserProfile } = {};
 
 if (!supabaseKey) {
   console.error("No supabase key found!");
@@ -100,30 +100,25 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("disconnect", (reason, session: Session) => {
+  socket.on("disconnect", (reason) => {
     // Called when a user is disconnected for any reason, passed along with the reason arg.
 
-    const activeUser = activeUsers[session.user.id];
+    const activeUser = activeUsers[reason];
     if (activeUser) {
       io.emit("remove active user", activeUser);
-      delete activeUsers[session.user.id];
+      delete activeUsers[socket.id];
     }
   });
 
-  socket.on(
-    "add to active users list",
-    (user: UserProfile, session: Session) => {
-      if (!user || !session) {
-        console.warn(
-          `User or session null! User: ${user}. Session: ${session}`
-        );
-        return;
-      }
-
-      activeUsers[session.user.id] = user;
-      io.emit("new active user", user);
+  socket.on("add to active users list", (user: UserProfile) => {
+    if (!user) {
+      console.warn(`User null! User: ${user}`);
+      return;
     }
-  );
+
+    activeUsers[socket.id] = user;
+    io.emit("new active user", user);
+  });
 });
 
 server.listen(PORT, () => {
