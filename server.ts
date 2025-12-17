@@ -108,6 +108,7 @@ io.on("connection", (socket: Socket) => {
         data: { user },
         error: tokenError,
       } = await supabase.auth.getUser(token);
+
       if (tokenError || !user) {
         return new Error("Authentication error");
       }
@@ -137,7 +138,6 @@ io.on("connection", (socket: Socket) => {
     }
 
     if (msg.messageContent.length <= 1201) {
-      io.emit("client receive message", msg); // Emit it to everyone else!
       if (usingSupabase) {
         // Only insert if actually using Supabase!
         const { error } = await supabase.from("messages").insert({
@@ -152,6 +152,7 @@ io.on("connection", (socket: Socket) => {
           try {
             await rateLimiter.consume(socket.handshake.auth.id); // consume 1 point per event per each user ID
             await immediateRateLimiter.consume(socket.handshake.auth.id); // do this for immediate stuff (no spamming every 0.1 seconds)
+            io.emit("client receive message", msg); // Emit it to everyone else!
           } catch (rejRes) {
             // No available points to consume
             // Emit error or warning message
