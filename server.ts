@@ -124,21 +124,11 @@ io.on("connection", (socket: Socket) => {
       if (error) {
         console.error("Could not update message (just couldn't idk): " + error);
       } else {
-        const {
-          data: { user },
-          error: newError,
-        } = await supabase.auth.getUser(socket.handshake.auth.token);
-
-        if (newError) {
-          console.error(
-            "Could not update message (user verification failed!): " + newError
-          );
-        } else {
-          io.emit("message edited", newId, newContent);
-        }
+        io.emit("message edited", newId, newContent);
       }
     }
   });
+
   socket.on("message sent", async (msg: ChatMessage, session: Session) => {
     // Received when the "message sent" gets called from a client
 
