@@ -54,7 +54,6 @@ io.on("connection", (socket: Socket) => {
   // Receive this when a user has ANY connection event to the Socket.IO server
 
   socket.on("request recent messages", async () => {
-    console.log("requesting recent messages!");
     if (!usingSupabase) return; // Can later warn not using database but meh not right now
     const { data: messagesData, error: messagesError } = await supabase
       .from("messages")
@@ -83,7 +82,6 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("request active users", async () => {
-    console.log("requesting active users!");
     socket.emit("receive active users", Object.values(activeUsers));
   });
 
@@ -134,7 +132,6 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("disconnect", (reason) => {
-    console.log("disconnect!");
     // Called when a user is disconnected for any reason, passed along with the reason arg.
 
     const activeUser = activeUsers[socket.id];
@@ -146,7 +143,6 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("add to active users list", (user: UserProfile) => {
-    console.log("adding to active users list!");
     if (!user) {
       console.warn(`User null! User: ${user}`);
       return;
