@@ -54,6 +54,7 @@ io.on("connection", (socket: Socket) => {
   // Receive this when a user has ANY connection event to the Socket.IO server
 
   socket.on("request recent messages", async () => {
+    console.log("requesting recent messages!");
     if (!usingSupabase) return; // Can later warn not using database but meh not right now
     const { data: messagesData, error: messagesError } = await supabase
       .from("messages")
@@ -74,6 +75,7 @@ io.on("connection", (socket: Socket) => {
         messageContent: row.message_content,
         messageId: row.message_id,
         messageTime: row.created_at,
+        isEdited: row.is_edited,
       };
     });
 
@@ -81,16 +83,34 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("request active users", async () => {
+    console.log("requesting active users!");
     socket.emit("receive active users", Object.values(activeUsers));
   });
 
-  socket.on("message sent", async (msg: ChatMessage, session: Session) => {
-    if (!session) return;
+  socket.on("edit message", async (newId: number, newContent: string) => {
+    if (usingSupabase) {
+      const { error } = await supabase
+        .from("messages")
+        .update({
+          // Edit the specific message thing
+          message_content: newContent,
+        })
+        .eq("message_id", newId);
 
+      if (error) {
+        console.error("Could not update message: " + error);
+      } else {
+        io.emit("message edited", newId, newContent);
+      }
+    }
+  });
+  socket.on("message sent", async (msg: ChatMessage, session: Session) => {
     // Received when the "message sent" gets called from a client
     try {
-      await rateLimiter.consume(session.user.id); // consume 1 point per event per each user ID
-      await immediateRateLimiter.consume(session.user.id); // do this for immediate stuff (no spamming every 0.1 seconds)
+      if (usingSupabase) {
+        await rateLimiter.consume(session.user.id); // consume 1 point per event per each user ID
+        await immediateRateLimiter.consume(session.user.id); // do this for immediate stuff (no spamming every 0.1 seconds)
+      }
       if (msg.messageContent.length <= 1201) {
         io.emit("client receive message", msg); // Emit it to everyone else!
         if (usingSupabase) {
@@ -114,6 +134,7 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("disconnect", (reason) => {
+    console.log("disconnect!");
     // Called when a user is disconnected for any reason, passed along with the reason arg.
 
     const activeUser = activeUsers[socket.id];
@@ -125,6 +146,7 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("add to active users list", (user: UserProfile) => {
+    console.log("adding to active users list!");
     if (!user) {
       console.warn(`User null! User: ${user}`);
       return;

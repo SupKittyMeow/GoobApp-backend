@@ -5,4 +5,5 @@ export default interface ChatMessage {
   messageContent: string;
   messageTime: Date;
   messageId: number;
+  isEdited: false;
 }
