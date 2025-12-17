@@ -118,7 +118,7 @@ io.on("connection", (socket: Socket) => {
 
   socket.on("give user role", async (userUUID: string, role: string) => {
     if ((await verifyValidity(socket)) != true) return;
-    const { error } = await supabase.from("profiles").update({role: role}).eq("user_uuid", userUUID);
+    const { error } = await supabase.from("profiles").update({role: role != "" ? role : null}).eq("user_uuid", userUUID);
 
     if (error)
     {
