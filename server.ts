@@ -54,7 +54,6 @@ const immediateRateLimiter = new RateLimiterMemory({
 });
 
 const verifyValidity = async (socket: Socket) => {
-  return true;
   const token = socket.handshake.auth.token;
   const {
     data: { user },
