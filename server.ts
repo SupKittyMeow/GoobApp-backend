@@ -59,11 +59,7 @@ const verifyValidity = async (socket: Socket) => {
     data: { user },
     error: tokenError,
   } = await supabase.auth.getUser(token);
-  if (tokenError || !user) {
-    return new Error("Authentication error");
-  } else {
-    return true;
-  }
+  return !(tokenError || !user);
 };
 
 io.on("connection", (socket: Socket) => {
