@@ -26,20 +26,20 @@ const io = new Server(server, {
 import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 import UserProfile from "./types/UserProfileObject";
 
-const supabaseUrl = "https://wfdcqaqihwsilzegcknq.supabase.co";
+const SUPABASE_URL = "https://wfdcqaqihwsilzegcknq.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-const supabaseKey = process.env.SUPABASE_KEY;
 let usingSupabase: boolean = false;
 let supabase: SupabaseClient;
 let activeUsers: { [socketId: string]: UserProfile } = {};
 
-if (!supabaseKey) {
+if (!SUPABASE_KEY) {
   console.error("No supabase key found!");
   // process.exit(1); // Exit with a non-zero code to indicate an error
 } else {
   console.log("Supabase key found!");
   usingSupabase = true;
-  supabase = createClient(supabaseUrl, supabaseKey);
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
 const rateLimiter = new RateLimiterMemory({
@@ -52,24 +52,48 @@ const immediateRateLimiter = new RateLimiterMemory({
   duration: 0.2, // per 0.2 seconds
 });
 
-const verifyValidity = async (socket: Socket) => {
+const verifyValidity = async (
+  socket: Socket
+): Promise<{ role: string | null; uuid: string }> => {
   if (!usingSupabase) {
-    return true;
+    return { role: "Owner", uuid: socket.handshake.auth.token };
   }
 
   const token = socket.handshake.auth.token;
-  const {
-    data: { user },
-    error: tokenError,
-  } = await supabase.auth.getUser(token);
-  return !(tokenError || !user);
+  const { data: authData, error: authError } = await supabase.auth.getUser(
+    token
+  );
+  const userId = authData?.user?.id;
+
+  if (authError || !userId) {
+    return { role: "tokenError", uuid: token };
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_uuid", userId)
+    .maybeSingle();
+
+  const finalUUID = userId ?? token;
+
+  if (error) {
+    return { role: "tokenError", uuid: finalUUID };
+  } else {
+    return {
+      role: data ? data.role : null,
+      uuid: finalUUID,
+    };
+  }
 };
 
 io.on("connection", (socket: Socket) => {
   // Receive this when a user has ANY connection event to the Socket.IO server
 
   socket.on("request recent messages", async () => {
-    if ((await verifyValidity(socket)) != true) return;
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
+
     if (!usingSupabase) return; // Can later warn not using database but meh not right now
     const { data: messagesData, error: messagesError } = await supabase
       .from("messages")
@@ -98,12 +122,24 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("request active users", async () => {
-    if ((await verifyValidity(socket)) != true) return;
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
+
     socket.emit("receive active users", Object.values(activeUsers));
   });
 
   socket.on("delete message", async (messageID: number) => {
-    if ((await verifyValidity(socket)) != true) return;
+    // FIXME: anybody can pretend to be owner/user!!!!!! fix!!
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
+
+    if (!usingSupabase) io.emit("deleted message", messageID);
+
+    // const token = socket.handshake.auth.token;
+    // const supabaseUser = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    //   global: { headers: { Authorization: `Bearer ${token}` } },
+    // });
+
     const { error } = await supabase
       .from("messages")
       .delete()
@@ -116,11 +152,13 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("give user role", async (userUUID: string, role: string) => {
-    if ((await verifyValidity(socket)) != true) return;
+  socket.on("give user role", async (userUUID: string, newRole: string) => {
+    const role = await verifyValidity(socket);
+    if (role.role != "Owner") return;
+
     const { error } = await supabase
       .from("profiles")
-      .update({ role: role != "" ? role : null })
+      .update({ role: newRole != "" ? newRole : null })
       .eq("user_uuid", userUUID);
 
     if (error) {
@@ -128,7 +166,7 @@ io.on("connection", (socket: Socket) => {
     } else {
       for (const [socketId, profile] of Object.entries(activeUsers)) {
         if (profile.userUUID == userUUID) {
-          activeUsers[socketId].userRole = role;
+          activeUsers[socketId].userRole = newRole;
           return;
         }
       }
@@ -138,10 +176,13 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("edit message", async (newId: number, newContent: string) => {
+    // FIXME: anybody can pretend to be owner/user!!!!!! fix!!
     if (!usingSupabase) {
       io.emit("message edited", newId, newContent);
     } else {
-      if ((await verifyValidity(socket)) != true) return;
+      const role = await verifyValidity(socket);
+      if (role.role == "tokenError") return;
+
       const token = socket.handshake.auth.token;
       const {
         data: { user },
@@ -172,7 +213,8 @@ io.on("connection", (socket: Socket) => {
   socket.on("message sent", async (msg: ChatMessage, session: Session) => {
     // Received when the "message sent" gets called from a client
 
-    if ((await verifyValidity(socket)) != true) return;
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
 
     if (msg.messageContent.length <= 1201) {
       if (usingSupabase) {
@@ -221,7 +263,8 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("add to active users list", async (user: UserProfile) => {
-    if ((await verifyValidity(socket)) != true) return;
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
 
     if (!user) {
       console.warn(`User null! User: ${user}`);
