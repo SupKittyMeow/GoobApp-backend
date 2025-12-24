@@ -331,7 +331,6 @@ io.on("connection", (socket: Socket) => {
         return response.json();
       })
       .then(async (img) => {
-        console.log(img.data.url);
         let message = {
           userDisplayName: "Image",
           userProfilePicture: "",
@@ -356,6 +355,7 @@ io.on("connection", (socket: Socket) => {
             .single();
 
           if (!data) {
+            console.error("Supabase error!");
             return;
           }
 
@@ -378,7 +378,7 @@ io.on("connection", (socket: Socket) => {
             }
           }
         } else {
-          console.log("Image uploaded!");
+          console.log("Image uploaded: " + img.data.url);
           io.emit("client receive message", message); // Emit it to everyone else!
         }
       })
