@@ -23,23 +23,24 @@ const io = new Server(server, {
   },
 }); // Create a new Socket.IO instance using the created HTTP server
 
-import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import UserProfile from "./types/UserProfileObject";
 
-const supabaseUrl = "https://wfdcqaqihwsilzegcknq.supabase.co";
+require("dotenv").config();
+const SUPABASE_URL = "https://wfdcqaqihwsilzegcknq.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-const supabaseKey = process.env.SUPABASE_KEY;
 let usingSupabase: boolean = false;
 let supabase: SupabaseClient;
 let activeUsers: { [socketId: string]: UserProfile } = {};
 
-if (!supabaseKey) {
+if (!SUPABASE_KEY) {
   console.error("No supabase key found!");
   // process.exit(1); // Exit with a non-zero code to indicate an error
 } else {
   console.log("Supabase key found!");
   usingSupabase = true;
-  supabase = createClient(supabaseUrl, supabaseKey);
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
 const rateLimiter = new RateLimiterMemory({
@@ -52,24 +53,48 @@ const immediateRateLimiter = new RateLimiterMemory({
   duration: 0.2, // per 0.2 seconds
 });
 
-const verifyValidity = async (socket: Socket) => {
+const verifyValidity = async (
+  socket: Socket
+): Promise<{ role: string | null; uuid: string }> => {
   if (!usingSupabase) {
-    return true;
+    return { role: "Owner", uuid: socket.handshake.auth.token };
   }
 
   const token = socket.handshake.auth.token;
-  const {
-    data: { user },
-    error: tokenError,
-  } = await supabase.auth.getUser(token);
-  return !(tokenError || !user);
+  const { data: authData, error: authError } = await supabase.auth.getUser(
+    token
+  );
+  const userId = authData?.user?.id;
+
+  if (authError || !userId) {
+    return { role: "tokenError", uuid: token };
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_uuid", userId)
+    .maybeSingle();
+
+  const finalUUID = userId ?? token;
+
+  if (error) {
+    return { role: "tokenError", uuid: finalUUID };
+  } else {
+    return {
+      role: data ? data.role : null,
+      uuid: finalUUID,
+    };
+  }
 };
 
 io.on("connection", (socket: Socket) => {
   // Receive this when a user has ANY connection event to the Socket.IO server
 
   socket.on("request recent messages", async () => {
-    if ((await verifyValidity(socket)) != true) return;
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
+
     if (!usingSupabase) return; // Can later warn not using database but meh not right now
     const { data: messagesData, error: messagesError } = await supabase
       .from("messages")
@@ -88,6 +113,7 @@ io.on("connection", (socket: Socket) => {
         userProfilePicture: row.profiles.profile_image_url,
         userUUID: row.user_uuid,
         messageContent: row.message_content,
+        messageImageUrl: row.message_image_url,
         messageId: row.message_id,
         messageTime: row.created_at,
         isEdited: row.is_edited,
@@ -98,15 +124,74 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("request active users", async () => {
-    if ((await verifyValidity(socket)) != true) return;
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
+
     socket.emit("receive active users", Object.values(activeUsers));
   });
 
+  socket.on("delete message", async (messageID: number) => {
+    // FIXME: anybody can pretend to be owner/user (maybe?)
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
+
+    if (!usingSupabase) {
+      io.emit("deleted message", messageID);
+      console.log("deleted message!");
+      return;
+    }
+
+    // const token = socket.handshake.auth.token;
+    // const supabaseUser = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    //   global: { headers: { Authorization: `Bearer ${token}` } },
+    // });
+
+    const { error } = await supabase
+      .from("messages")
+      .delete()
+      .eq("message_id", messageID);
+    if (error) {
+      console.error("Error while attempting to delete message: " + error);
+      return;
+    } else {
+      io.emit("deleted message", messageID);
+    }
+  });
+
+  socket.on("give user role", async (userUUID: string, newRole: string) => {
+    const user = await verifyValidity(socket);
+    if (user.role != "Owner") return;
+    if (newRole == "Owner") return; // Don't allow people to give owner role!
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role: newRole != "" ? newRole : null })
+      .eq("user_uuid", userUUID)
+      .or("role.is.null,role.neq.Owner");
+
+    if (error) {
+      console.error("Error while attempting to give user role: " + error);
+    } else {
+      for (const [socketId, profile] of Object.entries(activeUsers)) {
+        if (profile.userUUID == userUUID) {
+          activeUsers[socketId].userRole = newRole;
+          return;
+        }
+      }
+    }
+
+    // TODO: (maybe) send an update to everyone so they don't have to reload to see it
+  });
+
   socket.on("edit message", async (newId: number, newContent: string) => {
+    // FIXME: anybody can pretend to be owner/user (maybe)
     if (!usingSupabase) {
       io.emit("message edited", newId, newContent);
+      console.log("edited message!");
     } else {
-      if ((await verifyValidity(socket)) != true) return;
+      const role = await verifyValidity(socket);
+      if (role.role == "tokenError") return;
+
       const token = socket.handshake.auth.token;
       const {
         data: { user },
@@ -134,10 +219,11 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("message sent", async (msg: ChatMessage, session: Session) => {
+  socket.on("message sent", async (msg: ChatMessage) => {
     // Received when the "message sent" gets called from a client
 
-    if ((await verifyValidity(socket)) != true) return;
+    const user = await verifyValidity(socket);
+    if (user.role == "tokenError") return;
 
     if (msg.messageContent.length <= 1201) {
       if (usingSupabase) {
@@ -170,6 +256,9 @@ io.on("connection", (socket: Socket) => {
             socket.emit("rate limited");
           }
         }
+      } else {
+        console.log("sending message!");
+        io.emit("client receive message", msg); // Emit it to everyone else!
       }
     }
   });
@@ -186,7 +275,8 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("add to active users list", async (user: UserProfile) => {
-    if ((await verifyValidity(socket)) != true) return;
+    const role = await verifyValidity(socket);
+    if (role.role == "tokenError") return;
 
     if (!user) {
       console.warn(`User null! User: ${user}`);
@@ -201,6 +291,100 @@ io.on("connection", (socket: Socket) => {
 
     activeUsers[socket.id] = user;
     io.emit("new active user", user);
+  });
+
+  socket.on("upload image", async (file: ArrayBuffer, fileType: string) => {
+    const user = await verifyValidity(socket);
+    if (user.role == "tokenError") return;
+
+    if (!fileType.startsWith("image/")) {
+      console.error("Not an image file!");
+      return;
+    }
+
+    const fileBlob = new Blob([file], { type: fileType });
+    const formData = new FormData();
+    formData.append("image", fileBlob, fileType);
+
+    if (!process.env.IMGBB_KEY) {
+      console.error("No imgBB key!1!");
+      return;
+    }
+
+    if (!usingSupabase) console.log("Uploading image...");
+
+    fetch(`https://api.imgbb.com/1/upload?key=${process.env.IMGBB_KEY}`, {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          // If the response is not OK, parse the body for a custom message
+          // and throw an error to trigger the .catch block.
+          return response.json().then((errorData) => {
+            throw new Error(
+              errorData.message || `HTTP error! status: ${response.status}`
+            );
+          });
+        }
+
+        return response.json();
+      })
+      .then(async (img) => {
+        console.log(img.url);
+        let message = {
+          userDisplayName: "Image",
+          userProfilePicture: "",
+          userUUID: user.uuid,
+          messageContent: "",
+          messageImageUrl: img.data.url,
+          messageTime: Date.now(),
+          messageId: 0,
+          isEdited: false,
+        };
+
+        if (usingSupabase) {
+          // Only insert if actually using Supabase!
+          const { data, error } = await supabase
+            .from("messages")
+            .insert({
+              // Insert a message into the Supabase table
+              user_uuid: user.uuid,
+              message_image_url: img.url,
+            })
+            .select("message_id,created_at,profiles")
+            .single();
+
+          if (!data) {
+            return;
+          }
+
+          message.messageId = data.message_id;
+          message.messageTime = data.created_at;
+          message.userDisplayName = data.profiles.username;
+          message.userProfilePicture = data.profiles.profile_image_url;
+
+          if (error) {
+            console.error("Could not insert message: " + error);
+          } else {
+            try {
+              await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
+              await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
+              io.emit("client receive message", message); // Emit it to everyone else!
+            } catch (rejRes) {
+              // No available points to consume
+              // Emit error or warning message
+              socket.emit("rate limited");
+            }
+          }
+        } else {
+          console.log("Image uploaded!");
+          io.emit("client receive message", message); // Emit it to everyone else!
+        }
+      })
+      .catch((error) => {
+        console.log("Fetch error:", error.message);
+      });
   });
 });
 

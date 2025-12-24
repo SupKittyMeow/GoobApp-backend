@@ -3,6 +3,7 @@ export default interface ChatMessage {
   userProfilePicture: string;
   userUUID: string;
   messageContent: string;
+  messageImageUrl: string;
   messageTime: Date;
   messageId: number;
   isEdited: false;
