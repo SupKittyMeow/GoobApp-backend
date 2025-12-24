@@ -155,6 +155,7 @@ io.on("connection", (socket: Socket) => {
   socket.on("give user role", async (userUUID: string, newRole: string) => {
     const role = await verifyValidity(socket);
     if (role.role != "Owner") return;
+    if (newRole == "Owner") return; // Don't allow people to give owners owner!
 
     const { error } = await supabase
       .from("profiles")
