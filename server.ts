@@ -342,8 +342,8 @@ io.on("connection", (socket: Socket) => {
           isEdited: false,
         };
 
+        // Only insert if actually using Supabase!
         if (usingSupabase) {
-          // Only insert if actually using Supabase!
           const { data, error } = await supabase
             .from("messages")
             .insert({
@@ -351,7 +351,7 @@ io.on("connection", (socket: Socket) => {
               user_uuid: user.uuid,
               message_image_url: img.url,
             })
-            .select()
+            .select("*,profiles(username,profile_image_url,role)")
             .single();
 
           if (!data) {
