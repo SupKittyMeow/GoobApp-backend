@@ -69,7 +69,7 @@ const SendMessageToAI = async (
           if (message.userDisplayName === "Goofy Goober") {
             return {
               role: "assistant" as const,
-              content: `${message.userDisplayName}: ${message.messageContent}`,
+              content: message.messageContent,
             };
           }
 
