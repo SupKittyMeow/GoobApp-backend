@@ -66,6 +66,7 @@ const mapData = (data: any) => {
 };
 
 let recentMessages: ChatMessage[] = [];
+let customPrompt: string | null = null;
 
 const getRecentMessagesForAI = async () => {
   const { data, error } = await supabase
@@ -340,6 +341,7 @@ io.on("connection", (socket: Socket) => {
       const response = await SendMessageToAI(
         message.userDisplayName,
         message.messageContent,
+        customPrompt,
         recentMessages
       );
 
@@ -478,6 +480,20 @@ io.on("connection", (socket: Socket) => {
 
     activeUsers[socket.id] = user;
     io.emit("new active user", user);
+  });
+
+  socket.on("set system prompt", async (prompt: string) => {
+    const role = await verifyValidity(socket.handshake.auth.token);
+    if (role.role == "Owner") {
+      customPrompt = prompt;
+    }
+  });
+
+  socket.on("reset system prompt", async (prompt: string) => {
+    const role = await verifyValidity(socket.handshake.auth.token);
+    if (role.role == "Owner") {
+      customPrompt = null;
+    }
   });
 });
 
