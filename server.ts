@@ -163,6 +163,8 @@ io.on("connection", (socket: Socket) => {
 
     if (responseError) {
       console.error(responseError);
+    } else {
+      socket.emit("deleted account");
     }
   });
 
