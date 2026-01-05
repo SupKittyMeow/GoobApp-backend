@@ -17,7 +17,7 @@ let system_prompt = "";
 let savedETag: string | null = null;
 
 async function GetSystemPrompt() {
-  const url = `https://raw.githubusercontent.com/GoobApp/goobAI-system-prompt/refs/heads/main/prompt.txt?t=${Date.now()}`;
+  const url = "https://ai.goobapp.org/prompt.txt";
   try {
     const headers: HeadersInit = {};
     if (savedETag) {
