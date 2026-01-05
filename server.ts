@@ -242,6 +242,8 @@ io.on("connection", (socket: Socket) => {
 
       if (!response) return;
 
+      const gooberUUID = "d63332a2-cb49-4da0-9095-68e1ee8f20e9"; // feels bad putting a uuid in there like this but whatever
+
       let msg: ChatMessage = {
         messageContent: response,
         messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
@@ -250,7 +252,7 @@ io.on("connection", (socket: Socket) => {
         userDisplayName: "Goofy Goober",
         userProfilePicture:
           "https://raw.githubusercontent.com/GoobApp/backend/refs/heads/main/goofy-goober.png",
-        userUUID: "GOOFY GOOBER",
+        userUUID: gooberUUID,
         isEdited: false,
       };
 
@@ -260,13 +262,14 @@ io.on("connection", (socket: Socket) => {
           .from("messages")
           .insert({
             // Insert a message into the Supabase table
-            user_uuid: "GOOFY GOOBER",
+            user_uuid: gooberUUID,
             message_content: response,
             message_image_url: null,
           })
           .select("message_id");
 
         if (!data) {
+          console.error("Goofy goober Supabase insert error");
           return;
         }
 
