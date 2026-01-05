@@ -145,7 +145,6 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("delete message", async (messageID: number) => {
-    // FIXME: anybody can pretend to be owner/user (maybe?)
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "tokenError") return;
 
@@ -160,13 +159,27 @@ io.on("connection", (socket: Socket) => {
     //   global: { headers: { Authorization: `Bearer ${token}` } },
     // });
 
-    const { error } = await supabase
-      .from("messages")
-      .delete()
-      .eq("message_id", messageID);
-    if (error) {
-      console.error("Error while attempting to delete message: " + error);
-      return;
+    let responseError;
+
+    if (role.role == "Owner") {
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("message_id", messageID);
+      responseError = error;
+    } else {
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("user_uuid", role.uuid)
+        .eq("message_id", messageID);
+      responseError = error;
+    }
+
+    if (responseError) {
+      console.error(
+        "Error while attempting to delete message: " + responseError
+      );
     } else {
       io.emit("deleted message", messageID);
     }
@@ -198,7 +211,6 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("edit message", async (newId: number, newContent: string) => {
-    // FIXME: anybody can pretend to be owner/user (maybe)
     if (!usingSupabase) {
       io.emit("message edited", newId, newContent);
       console.log("edited message!");
@@ -206,27 +218,35 @@ io.on("connection", (socket: Socket) => {
       const role = await verifyValidity(socket.handshake.auth.token);
       if (role.role == "tokenError") return;
 
-      const token = socket.handshake.auth.token;
-      const {
-        data: { user },
-        error: tokenError,
-      } = await supabase.auth.getUser(token);
+      let responseError;
 
-      if (tokenError || !user) {
-        return new Error("Authentication error");
+      if (role.role == "Owner") {
+        const { error } = await supabase
+          .from("messages")
+          .update({
+            // Edit the specific message thing
+            message_content: newContent,
+            is_edited: true,
+          })
+          .eq("message_id", newId);
+        responseError = error;
+      } else {
+        const { error } = await supabase
+          .from("messages")
+          .update({
+            // Edit the specific message thing
+            message_content: newContent,
+            is_edited: true,
+          })
+          .eq("user_uuid", role.uuid)
+          .eq("message_id", newId);
+        responseError = error;
       }
 
-      const { error } = await supabase
-        .from("messages")
-        .update({
-          // Edit the specific message thing
-          message_content: newContent,
-          is_edited: true,
-        })
-        .eq("message_id", newId);
-
-      if (error) {
-        console.error("Could not update message (just couldn't idk): " + error);
+      if (responseError) {
+        console.error(
+          "Could not update message (just couldn't idk): " + responseError
+        );
       } else {
         io.emit("message edited", newId, newContent);
       }
@@ -315,13 +335,17 @@ io.on("connection", (socket: Socket) => {
             message_content: msg.messageContent,
             message_image_url: msg.messageImageUrl,
           })
-          .select("message_id");
+          .select("*");
 
         if (!data) {
           return;
         }
 
         msg.messageId = data[0].message_id;
+        msg.messageContent = data[0].message_content;
+        msg.isEdited = false;
+        msg.messageTime = data[0].message_time;
+        msg.userUUID = data[0].user_uuid;
 
         if (error) {
           console.error("Could not insert message: " + error);
