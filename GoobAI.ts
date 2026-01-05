@@ -47,14 +47,12 @@ async function GetSystemPrompt() {
 }
 
 const SendMessageToAI = async (
-  username: string,
-  prompt: string,
   custom_system_prompt: string | null,
   recentMessages: ChatMessage[]
 ) => {
   if (!use_ai) return;
   if (custom_system_prompt === null) await GetSystemPrompt();
-  else console.log("Using custom system prompts: " + custom_system_prompt);
+  else console.log("Using custom system prompt: " + custom_system_prompt);
 
   try {
     const chatCompletion = await client.chat.completions.create({
@@ -78,10 +76,6 @@ const SendMessageToAI = async (
             content: `${message.userDisplayName}: ${message.messageContent}`,
           };
         }),
-        {
-          role: "user",
-          content: `${username}: ${prompt}`,
-        },
       ],
       model: "moonshotai/kimi-k2-instruct-0905",
       temperature: 0.6,

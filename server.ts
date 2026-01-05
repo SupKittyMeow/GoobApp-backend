@@ -340,12 +340,7 @@ io.on("connection", (socket: Socket) => {
 
   const SendMessageToAiIfNeeded = async (message: ChatMessage) => {
     if (message.messageContent.toLowerCase().includes("@goob")) {
-      const response = await SendMessageToAI(
-        message.userDisplayName,
-        message.messageContent,
-        customPrompt,
-        recentMessages
-      );
+      const response = await SendMessageToAI(customPrompt, recentMessages);
 
       if (!response) return;
 
@@ -385,10 +380,14 @@ io.on("connection", (socket: Socket) => {
           console.error("Could not insert message: " + error);
         } else {
           io.emit("client receive message", msg); // Emit it to everyone else!
+          recentMessages.push(msg);
+          recentMessages.shift();
         }
       } else {
         console.log("sending message (Goofy Goober)!");
         io.emit("client receive message", msg); // Emit it to everyone else!
+        recentMessages.push(msg);
+        recentMessages.shift();
       }
     }
   };
@@ -443,10 +442,16 @@ io.on("connection", (socket: Socket) => {
           console.error("Could not insert message: " + error);
         }
 
+        recentMessages.push(msg);
+        recentMessages.shift();
+
         SendMessageToAiIfNeeded(msg);
       } else {
         console.log("sending message!");
         io.emit("client receive message", msg); // Emit it to everyone else!
+        recentMessages.push(msg);
+        recentMessages.shift();
+
         SendMessageToAiIfNeeded(msg);
       }
     }
@@ -489,19 +494,7 @@ io.on("connection", (socket: Socket) => {
       customPrompt = prompt;
       socket.emit("custom prompt set");
 
-      recentMessages.push({
-        messageContent: "From now on, I will be responding with a new persona.",
-        messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
-        messageImageUrl: "",
-        userRole: "Bot",
-        messageTime: Date.now(),
-        userDisplayName: "Goofy Goober",
-        userProfilePicture:
-          "https://raw.githubusercontent.com/GoobApp/backend/refs/heads/main/goofy-goober.png",
-        userUUID: gooberUUID,
-        isEdited: false,
-      });
-      recentMessages.shift();
+      recentMessages = []; // clear array because otherwise it kinda just reverts back to same ways
     }
   });
 
@@ -511,19 +504,7 @@ io.on("connection", (socket: Socket) => {
       console.log("Custom system prompt reset!");
       customPrompt = null;
       socket.emit("custom prompt reset");
-      recentMessages.push({
-        messageContent: "From now on, I will be responding with a new persona.",
-        messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
-        messageImageUrl: "",
-        userRole: "Bot",
-        messageTime: Date.now(),
-        userDisplayName: "Goofy Goober",
-        userProfilePicture:
-          "https://raw.githubusercontent.com/GoobApp/backend/refs/heads/main/goofy-goober.png",
-        userUUID: gooberUUID,
-        isEdited: false,
-      });
-      recentMessages.shift();
+      recentMessages = []; // clear array because otherwise it kinda just reverts back to same ways
     }
   });
 });
@@ -654,12 +635,14 @@ app.post("/upload", upload.single("image"), async (req, res) => {
           console.error("Could not insert message: " + error);
         } else {
           io.emit("client receive message", message); // Emit it to everyone else!
+          message.messageContent = "IMAGE";
           recentMessages.push(message);
           recentMessages.shift();
         }
       } else {
         console.log("Image uploaded: " + img.data.url);
         io.emit("client receive message", message); // Emit it to everyone else!
+        message.messageContent = "IMAGE";
         recentMessages.push(message);
         recentMessages.shift();
       }
