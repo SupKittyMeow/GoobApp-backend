@@ -529,7 +529,10 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         }
 
         message.messageId = data.message_id;
+        message.messageContent = data.message_content;
+        message.isEdited = false;
         message.messageTime = data.created_at;
+        message.userUUID = data.user_uuid;
         message.userDisplayName = data.profiles.username;
         message.userProfilePicture = data.profiles.profile_image_url;
 
