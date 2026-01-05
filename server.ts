@@ -327,11 +327,11 @@ io.on("connection", (socket: Socket) => {
           console.error("Could not insert message: " + error);
         }
 
-        await SendMessageToAiIfNeeded(msg);
+        SendMessageToAiIfNeeded(msg);
       } else {
         console.log("sending message!");
         io.emit("client receive message", msg); // Emit it to everyone else!
-        await SendMessageToAiIfNeeded(msg);
+        SendMessageToAiIfNeeded(msg);
       }
     }
   });
@@ -404,6 +404,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
   if (!file.mimetype.startsWith("image/")) {
     console.error("Not an image file!");
+    res.sendStatus(400); // error 400: can't understand request
     return;
   }
 
@@ -420,6 +421,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
   if (!process.env.IMGBB_KEY) {
     console.error("No imgBB key!1!");
+    res.sendStatus(500); // error 500: internal server error
     return;
   }
 
@@ -472,6 +474,8 @@ app.post("/upload", upload.single("image"), async (req, res) => {
               ? `Supabase error: ${error.message}! Hint: ${error.hint}`
               : "Supabase error!"
           );
+
+          res.sendStatus(500); // error 500: internal server error
           return;
         }
 
@@ -494,6 +498,6 @@ app.post("/upload", upload.single("image"), async (req, res) => {
     })
     .catch((error) => {
       console.log("Fetch error:", error.message);
-      res.sendStatus(500);
+      res.sendStatus(500); // error 500: internal server error
     });
 });
