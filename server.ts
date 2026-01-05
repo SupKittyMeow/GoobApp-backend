@@ -278,15 +278,7 @@ io.on("connection", (socket: Socket) => {
         if (error) {
           console.error("Could not insert message: " + error);
         } else {
-          try {
-            await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
-            await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
-            io.emit("client receive message", msg); // Emit it to everyone else!
-          } catch (rejRes) {
-            // No available points to consume
-            // Emit error or warning message
-            socket.emit("rate limited");
-          }
+          io.emit("client receive message", msg); // Emit it to everyone else!
         }
       } else {
         console.log("sending message (Goofy Goober)!");
@@ -303,6 +295,17 @@ io.on("connection", (socket: Socket) => {
 
     if (msg.messageContent.length <= 1201) {
       if (usingSupabase) {
+        try {
+          await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
+          await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
+          io.emit("client receive message", msg); // Emit it to everyone else!
+        } catch (rejRes) {
+          // No available points to consume
+          // Emit error or warning message
+          socket.emit("rate limited");
+          return;
+        }
+
         // Only insert if actually using Supabase!
         const { data, error } = await supabase
           .from("messages")
@@ -322,22 +325,13 @@ io.on("connection", (socket: Socket) => {
 
         if (error) {
           console.error("Could not insert message: " + error);
-        } else {
-          try {
-            await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
-            await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
-            io.emit("client receive message", msg); // Emit it to everyone else!
-            SendMessageToAiIfNeeded(msg);
-          } catch (rejRes) {
-            // No available points to consume
-            // Emit error or warning message
-            socket.emit("rate limited");
-          }
         }
+
+        await SendMessageToAiIfNeeded(msg);
       } else {
         console.log("sending message!");
         io.emit("client receive message", msg); // Emit it to everyone else!
-        SendMessageToAiIfNeeded(msg);
+        await SendMessageToAiIfNeeded(msg);
       }
     }
   });
@@ -495,8 +489,11 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         console.log("Image uploaded: " + img.data.url);
         io.emit("client receive message", message); // Emit it to everyone else!
       }
+
+      res.sendStatus(201);
     })
     .catch((error) => {
       console.log("Fetch error:", error.message);
+      res.sendStatus(500);
     });
 });
