@@ -54,6 +54,7 @@ const SendMessageToAI = async (
 ) => {
   if (!use_ai) return;
   if (custom_system_prompt === null) await GetSystemPrompt();
+  else console.log("Using custom system prompts: " + custom_system_prompt);
 
   try {
     const chatCompletion = await client.chat.completions.create({
@@ -65,6 +66,13 @@ const SendMessageToAI = async (
           }`,
         },
         ...recentMessages.map((message) => {
+          if (message.userDisplayName === "Goofy Goober") {
+            return {
+              role: "assistant" as const,
+              content: `${message.userDisplayName}: ${message.messageContent}`,
+            };
+          }
+
           return {
             role: "user" as const,
             content: `${message.userDisplayName}: ${message.messageContent}`,

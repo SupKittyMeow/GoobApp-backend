@@ -336,6 +336,8 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
+  const gooberUUID = "d63332a2-cb49-4da0-9095-68e1ee8f20e9"; // feels bad putting a uuid in there like this but whatever
+
   const SendMessageToAiIfNeeded = async (message: ChatMessage) => {
     if (message.messageContent.toLowerCase().includes("@goob")) {
       const response = await SendMessageToAI(
@@ -346,8 +348,6 @@ io.on("connection", (socket: Socket) => {
       );
 
       if (!response) return;
-
-      const gooberUUID = "d63332a2-cb49-4da0-9095-68e1ee8f20e9"; // feels bad putting a uuid in there like this but whatever
 
       let msg: ChatMessage = {
         messageContent: response,
@@ -488,6 +488,20 @@ io.on("connection", (socket: Socket) => {
       console.log("Custom system prompt set!");
       customPrompt = prompt;
       socket.emit("custom prompt set");
+
+      recentMessages.push({
+        messageContent: "From now on, I will be responding with a new persona.",
+        messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
+        messageImageUrl: "",
+        userRole: "Bot",
+        messageTime: Date.now(),
+        userDisplayName: "Goofy Goober",
+        userProfilePicture:
+          "https://raw.githubusercontent.com/GoobApp/backend/refs/heads/main/goofy-goober.png",
+        userUUID: gooberUUID,
+        isEdited: false,
+      });
+      recentMessages.shift();
     }
   });
 
@@ -497,6 +511,19 @@ io.on("connection", (socket: Socket) => {
       console.log("Custom system prompt reset!");
       customPrompt = null;
       socket.emit("custom prompt reset");
+      recentMessages.push({
+        messageContent: "From now on, I will be responding with a new persona.",
+        messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
+        messageImageUrl: "",
+        userRole: "Bot",
+        messageTime: Date.now(),
+        userDisplayName: "Goofy Goober",
+        userProfilePicture:
+          "https://raw.githubusercontent.com/GoobApp/backend/refs/heads/main/goofy-goober.png",
+        userUUID: gooberUUID,
+        isEdited: false,
+      });
+      recentMessages.shift();
     }
   });
 });
