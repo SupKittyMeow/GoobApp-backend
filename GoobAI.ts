@@ -52,16 +52,32 @@ const SendMessageToAI = async (
 ) => {
   if (!use_ai) return;
   if (custom_system_prompt === null) await GetSystemPrompt();
-  else console.log("Using custom system prompt: " + custom_system_prompt);
+
+  const active_prompt =
+    custom_system_prompt === null ? system_prompt : custom_system_prompt;
+  console.log("Active prompt: " + active_prompt);
+  console.log(
+    recentMessages.map((message) => {
+      if (message.userDisplayName === "Goofy Goober") {
+        return {
+          role: "assistant" as const,
+          content: message.messageContent,
+        };
+      }
+
+      return {
+        role: "user" as const,
+        content: `${message.userDisplayName}: ${message.messageContent}`,
+      };
+    })
+  );
 
   try {
     const chatCompletion = await client.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: `${
-            custom_system_prompt === null ? system_prompt : custom_system_prompt
-          }`,
+          content: `${active_prompt}`,
         },
         ...recentMessages.map((message) => {
           if (message.userDisplayName === "Goofy Goober") {
