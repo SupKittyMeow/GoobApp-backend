@@ -145,6 +145,27 @@ io.on("connection", (socket: Socket) => {
     socket.emit("receive active users", Object.values(activeUsers));
   });
 
+  socket.on("delete account", async (userUUID: string | null) => {
+    const role = await verifyValidity(socket.handshake.auth.token);
+    if (role.role == "tokenError") return;
+
+    let responseError;
+
+    if (userUUID !== null) {
+      if (role.role == "Owner") {
+        const { data, error } = await supabase.auth.admin.deleteUser(userUUID);
+        responseError = error;
+      }
+    } else {
+      const { data, error } = await supabase.auth.admin.deleteUser(role.uuid);
+      responseError = error;
+    }
+
+    if (responseError) {
+      console.error(responseError);
+    }
+  });
+
   socket.on("delete message", async (messageID: number) => {
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "tokenError") return;
@@ -154,11 +175,6 @@ io.on("connection", (socket: Socket) => {
       console.log("deleted message!");
       return;
     }
-
-    // const token = socket.handshake.auth.token;
-    // const supabaseUser = createClient(SUPABASE_URL, SUPABASE_KEY, {
-    //   global: { headers: { Authorization: `Bearer ${token}` } },
-    // });
 
     let responseError;
 
