@@ -6,6 +6,7 @@ import express from "express";
 import http from "http"; // Get the HTTP package
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import { Server, Socket } from "socket.io";
+import SendMessageToAI from "./GoobAI";
 import ChatMessage from "./types/ChatMessageObject";
 
 const PORT = process.env.PORT || 3000; // This will mean if in a server, use its port, and if it can't find anything, use default port 3000
@@ -232,6 +233,65 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
+  const SendMessageToAiIfNeeded = async (message: ChatMessage) => {
+    if (message.messageContent.toLowerCase().includes("@goob")) {
+      const response = await SendMessageToAI(
+        message.userDisplayName,
+        message.messageContent
+      );
+
+      if (!response) return;
+
+      let msg: ChatMessage = {
+        messageContent: response,
+        messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
+        messageImageUrl: "",
+        messageTime: new Date(),
+        userDisplayName: "Goofy Goober",
+        userProfilePicture:
+          "https://raw.githubusercontent.com/GoobApp/backend/refs/heads/main/goofy-goober.png",
+        userUUID: "GOOFY GOOBER",
+        isEdited: false,
+      };
+
+      if (usingSupabase) {
+        // Only insert if actually using Supabase!
+        const { data, error } = await supabase
+          .from("messages")
+          .insert({
+            // Insert a message into the Supabase table
+            user_uuid: "GOOFY GOOBER",
+            message_content: response,
+            message_image_url: null,
+          })
+          .select("message_id");
+
+        if (!data) {
+          return;
+        }
+
+        msg.messageId = data[0].message_id;
+
+        if (error) {
+          console.error("Could not insert message: " + error);
+        } else {
+          try {
+            await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
+            await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
+            io.emit("client receive message", msg); // Emit it to everyone else!
+          } catch (rejRes) {
+            // No available points to consume
+            // Emit error or warning message
+            socket.emit("rate limited");
+          }
+        }
+      } else {
+        console.log("sending message (Goofy Goober)!");
+        io.emit("client receive message", msg); // Emit it to everyone else!
+      }
+    }
+  };
+
   socket.on("message sent", async (msg: ChatMessage) => {
     // Received when the "message sent" gets called from a client
 
@@ -264,6 +324,7 @@ io.on("connection", (socket: Socket) => {
             await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
             await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
             io.emit("client receive message", msg); // Emit it to everyone else!
+            SendMessageToAiIfNeeded(msg);
           } catch (rejRes) {
             // No available points to consume
             // Emit error or warning message
@@ -273,6 +334,7 @@ io.on("connection", (socket: Socket) => {
       } else {
         console.log("sending message!");
         io.emit("client receive message", msg); // Emit it to everyone else!
+        SendMessageToAiIfNeeded(msg);
       }
     }
   });
