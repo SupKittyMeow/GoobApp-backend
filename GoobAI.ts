@@ -49,24 +49,29 @@ const SendMessageToAI = async (username: string, prompt: string) => {
   if (!use_ai) return;
 
   await GetSystemPrompt();
-  const chatCompletion = await client.chat.completions.create({
-    messages: [
-      {
-        role: "system",
-        content: `${system_prompt}\n\nThe user who messaged you is: ${username}`,
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    model: "moonshotai/kimi-k2-instruct-0905",
-    temperature: 0.6,
-    max_completion_tokens: 4096,
-    top_p: 1,
-    stream: false,
-  });
-  return chatCompletion.choices[0].message.content;
+
+  try {
+    const chatCompletion = await client.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: `${system_prompt}\n\nThe user who messaged you is: ${username}`,
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      model: "moonshotai/kimi-k2-instruct-0905",
+      temperature: 0.6,
+      max_completion_tokens: 4096,
+      top_p: 1,
+      stream: false,
+    });
+    return chatCompletion.choices[0].message.content;
+  } catch (Error) {
+    return "Sorry, an error occurred :goob:";
+  }
 };
 
 export default SendMessageToAI;
