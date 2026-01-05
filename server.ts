@@ -123,14 +123,11 @@ io.on("connection", (socket: Socket) => {
 
     const formattedData: ChatMessage[] = messagesData.map((row) => {
       return {
-        userDisplayName:
-          row.profiles.username == null ? "" : row.profiles.username,
+        userDisplayName: (row.profiles && row.profiles.username) || "",
         userProfilePicture:
-          row.profiles.profile_image_url == null
-            ? ""
-            : row.profiles.profile_image_url,
-        userRole: row.profiles.role == null ? "" : row.profiles.role,
-        userUUID: row.user_uuid == null ? "" : row.user_uuid,
+          (row.profiles && row.profiles.profile_image_url) || "",
+        userRole: (row.profiles && row.profiles.role) || "",
+        userUUID: row.user_uuid || "",
         messageContent: row.message_content,
         messageImageUrl: row.message_image_url,
         messageId: row.message_id,
