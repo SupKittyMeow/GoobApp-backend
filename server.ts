@@ -336,14 +336,16 @@ io.on("connection", (socket: Socket) => {
 
     if (msg.messageContent.length <= 1201) {
       if (usingSupabase) {
-        try {
-          await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
-          await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
-        } catch (rejRes) {
-          // No available points to consume
-          // Emit error or warning message
-          socket.emit("rate limited");
-          return;
+        if (user.role != "Owner") {
+          try {
+            await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
+            await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
+          } catch (rejRes) {
+            // No available points to consume
+            // Emit error or warning message
+            socket.emit("rate limited");
+            return;
+          }
         }
 
         // Only insert if actually using Supabase!
