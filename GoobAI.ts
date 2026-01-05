@@ -51,10 +51,9 @@ const SendMessageToAI = async (username: string, prompt: string) => {
   await GetSystemPrompt();
   const chatCompletion = await client.chat.completions.create({
     messages: [
-      { role: "system", content: system_prompt },
       {
         role: "system",
-        content: `The user who messaged you is: ${username}`,
+        content: `${system_prompt}\n\nThe user who messaged you is: ${username}`,
       },
       {
         role: "user",
