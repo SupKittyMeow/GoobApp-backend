@@ -53,10 +53,11 @@ const SendMessageToAI = async (username: string, prompt: string) => {
     messages: [
       {
         role: "system",
-        content: `${system_prompt}\n\nThe user who messaged you is: ${username}`,
+        content: system_prompt,
       },
       {
         role: "user",
+        name: username,
         content: prompt,
       },
     ],
