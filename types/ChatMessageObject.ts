@@ -5,7 +5,7 @@ export default interface ChatMessage {
   userUUID: string;
   messageContent: string;
   messageImageUrl: string;
-  messageTime: Date;
+  messageTime: number;
   messageId: number;
-  isEdited: false;
+  isEdited: boolean;
 }

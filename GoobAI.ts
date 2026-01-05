@@ -1,4 +1,5 @@
 import Groq from "groq-sdk";
+import ChatMessage from "./types/ChatMessageObject";
 
 require("dotenv").config();
 
@@ -45,7 +46,11 @@ async function GetSystemPrompt() {
   }
 }
 
-const SendMessageToAI = async (username: string, prompt: string) => {
+const SendMessageToAI = async (
+  username: string,
+  prompt: string,
+  recentMessages: ChatMessage[]
+) => {
   if (!use_ai) return;
 
   await GetSystemPrompt();
@@ -55,11 +60,17 @@ const SendMessageToAI = async (username: string, prompt: string) => {
       messages: [
         {
           role: "system",
-          content: `${system_prompt}\n\nThe user who messaged you is: ${username}`,
+          content: `${system_prompt}`,
         },
+        ...recentMessages.map((message) => {
+          return {
+            role: "user" as const,
+            content: `${message.userDisplayName}: ${message.messageContent}`,
+          };
+        }),
         {
           role: "user",
-          content: prompt,
+          content: `${username}: ${prompt}`,
         },
       ],
       model: "moonshotai/kimi-k2-instruct-0905",

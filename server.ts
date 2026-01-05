@@ -48,6 +48,42 @@ let usingSupabase: boolean = false;
 let supabase: SupabaseClient;
 let activeUsers: { [socketId: string]: UserProfile } = {};
 
+const mapData = (data: any) => {
+  // uh oh any type im lazy!!
+  let msg: ChatMessage = {
+    messageContent: data.message_content,
+    messageId: data.message_id,
+    isEdited: false,
+    messageTime: data.created_at,
+    userUUID: data.user_uuid,
+    userDisplayName: data.profiles.username,
+    userProfilePicture: data.profiles.profile_image_url,
+    userRole: data.profiles.role,
+    messageImageUrl: "",
+  };
+
+  return msg;
+};
+
+let recentMessages: ChatMessage[] = [];
+
+const getRecentMessagesForAI = async () => {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*,profiles(username,profile_image_url,role)")
+    .order("message_id", { ascending: false })
+    .limit(10); // Change to number of messages you want to give to the user, but PLEASE do not let the user pick aaaaaaa NOT A GOOD IDEA anyways
+
+  if (error) {
+    console.log(error);
+    return;
+  }
+
+  for (let index = 0; index < data.length; index++) {
+    recentMessages.push(mapData(data[index]));
+  }
+};
+
 if (!SUPABASE_KEY || !SUPABASE_URL) {
   console.error("No supabase key found!");
   // process.exit(1); // Exit with a non-zero code to indicate an error
@@ -55,6 +91,7 @@ if (!SUPABASE_KEY || !SUPABASE_URL) {
   console.log("Supabase key found!");
   usingSupabase = true;
   supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  getRecentMessagesForAI();
 }
 
 const rateLimiter = new RateLimiterMemory({
@@ -175,6 +212,12 @@ io.on("connection", (socket: Socket) => {
 
     if (!usingSupabase) {
       io.emit("deleted message", messageID);
+      recentMessages.forEach((element) => {
+        if (element.messageId == messageID) {
+          delete recentMessages[recentMessages.indexOf(element)];
+        }
+      });
+
       console.log("deleted message!");
       return;
     }
@@ -202,6 +245,11 @@ io.on("connection", (socket: Socket) => {
       );
     } else {
       io.emit("deleted message", messageID);
+      recentMessages.forEach((element) => {
+        if (element.messageId == messageID) {
+          delete recentMessages[recentMessages.indexOf(element)];
+        }
+      });
     }
   });
 
@@ -233,6 +281,13 @@ io.on("connection", (socket: Socket) => {
   socket.on("edit message", async (newId: number, newContent: string) => {
     if (!usingSupabase) {
       io.emit("message edited", newId, newContent);
+      recentMessages.forEach((element) => {
+        if (element.messageId == newId) {
+          recentMessages[recentMessages.indexOf(element)].isEdited = true;
+          recentMessages[recentMessages.indexOf(element)].messageContent =
+            newContent;
+        }
+      });
       console.log("edited message!");
     } else {
       const role = await verifyValidity(socket.handshake.auth.token);
@@ -269,6 +324,13 @@ io.on("connection", (socket: Socket) => {
         );
       } else {
         io.emit("message edited", newId, newContent);
+        recentMessages.forEach((element) => {
+          if (element.messageId == newId) {
+            recentMessages[recentMessages.indexOf(element)].isEdited = true;
+            recentMessages[recentMessages.indexOf(element)].messageContent =
+              newContent;
+          }
+        });
       }
     }
   });
@@ -277,7 +339,8 @@ io.on("connection", (socket: Socket) => {
     if (message.messageContent.toLowerCase().includes("@goob")) {
       const response = await SendMessageToAI(
         message.userDisplayName,
-        message.messageContent
+        message.messageContent,
+        recentMessages
       );
 
       if (!response) return;
@@ -289,7 +352,7 @@ io.on("connection", (socket: Socket) => {
         messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
         messageImageUrl: "",
         userRole: "Bot",
-        messageTime: new Date(),
+        messageTime: Date.now(),
         userDisplayName: "Goofy Goober",
         userProfilePicture:
           "https://raw.githubusercontent.com/GoobApp/backend/refs/heads/main/goofy-goober.png",
@@ -500,6 +563,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         userDisplayName: "Image",
         userProfilePicture: "",
         userUUID: "",
+        userRole: null,
         messageContent: "",
         messageImageUrl: img.data.url,
         messageTime: Date.now(),
@@ -537,15 +601,20 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         message.userUUID = data.user_uuid;
         message.userDisplayName = data.profiles.username;
         message.userProfilePicture = data.profiles.profile_image_url;
+        message.userRole = data.profiles.role;
 
         if (error) {
           console.error("Could not insert message: " + error);
         } else {
           io.emit("client receive message", message); // Emit it to everyone else!
+          recentMessages.push(message);
+          recentMessages.shift();
         }
       } else {
         console.log("Image uploaded: " + img.data.url);
         io.emit("client receive message", message); // Emit it to everyone else!
+        recentMessages.push(message);
+        recentMessages.shift();
       }
 
       res.sendStatus(201);
