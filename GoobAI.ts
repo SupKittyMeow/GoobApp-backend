@@ -23,6 +23,7 @@ async function GetSystemPrompt() {
     const headers: HeadersInit = {};
     if (savedETag) {
       headers["If-None-Match"] = savedETag;
+      headers["Cache-Control"] = "no-cache";
     }
 
     const response = await fetch(url, { headers });
@@ -35,11 +36,11 @@ async function GetSystemPrompt() {
       throw new Error(`Response status: ${response.status}`);
     }
 
-    savedETag = response.headers.get("ETag");
     console.log("New system prompt! Updating old...");
 
     const result = await response.text();
     system_prompt = result;
+    savedETag = response.headers.get("ETag");
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
   }
