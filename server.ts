@@ -125,6 +125,7 @@ io.on("connection", (socket: Socket) => {
       return {
         userDisplayName: row.profiles.username,
         userProfilePicture: row.profiles.profile_image_url,
+        userRole: row.profiles.role,
         userUUID: row.user_uuid,
         messageContent: row.message_content,
         messageImageUrl: row.message_image_url,
@@ -268,6 +269,7 @@ io.on("connection", (socket: Socket) => {
         messageContent: response,
         messageId: Date.now(), // This gets autoset by supabase but no reason not to set it also here (local testing)
         messageImageUrl: "",
+        userRole: "Bot",
         messageTime: new Date(),
         userDisplayName: "Goofy Goober",
         userProfilePicture:
