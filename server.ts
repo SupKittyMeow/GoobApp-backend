@@ -485,14 +485,18 @@ io.on("connection", (socket: Socket) => {
   socket.on("set system prompt", async (prompt: string) => {
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "Owner") {
+      console.log("Custom system prompt set!");
       customPrompt = prompt;
+      socket.emit("custom prompt set");
     }
   });
 
   socket.on("reset system prompt", async (prompt: string) => {
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "Owner") {
+      console.log("Custom system prompt reset!");
       customPrompt = null;
+      socket.emit("custom prompt reset");
     }
   });
 });

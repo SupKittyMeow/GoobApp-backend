@@ -53,8 +53,7 @@ const SendMessageToAI = async (
   recentMessages: ChatMessage[]
 ) => {
   if (!use_ai) return;
-
-  if (!custom_system_prompt) await GetSystemPrompt();
+  if (custom_system_prompt === null) await GetSystemPrompt();
 
   try {
     const chatCompletion = await client.chat.completions.create({
@@ -62,7 +61,7 @@ const SendMessageToAI = async (
         {
           role: "system",
           content: `${
-            custom_system_prompt !== null ? custom_system_prompt : system_prompt
+            custom_system_prompt === null ? system_prompt : custom_system_prompt
           }`,
         },
         ...recentMessages.map((message) => {
