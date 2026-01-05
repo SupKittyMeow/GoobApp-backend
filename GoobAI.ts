@@ -14,19 +14,32 @@ if (!process.env.GROQ_API_KEY) {
   });
 }
 let system_prompt = "";
+let savedETag: string | null = null;
 
 async function GetSystemPrompt() {
-  const url =
-    "https://raw.githubusercontent.com/GoobApp/goobAI-system-prompt/refs/heads/main/prompt.txt";
+  const url = `https://raw.githubusercontent.com/GoobApp/goobAI-system-prompt/refs/heads/main/prompt.txt?t=${Date.now()}`;
   try {
-    const response = await fetch(url);
+    const headers: HeadersInit = {};
+    if (savedETag) {
+      headers["If-None-Match"] = savedETag;
+      headers["Cache-Control"] = "no-cache";
+    }
+
+    const response = await fetch(url, { headers });
+
+    if (response.status === 304) {
+      return { updated: false };
+    }
 
     if (!response.ok) {
       throw new Error(`Response status: ${response.status}`);
     }
 
+    console.log("New system prompt! Updating old...");
+
     const result = await response.text();
     system_prompt = result;
+    savedETag = response.headers.get("ETag");
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
   }
