@@ -318,7 +318,6 @@ io.on("connection", (socket: Socket) => {
         try {
           await rateLimiter.consume(socket.id); // consume 1 point per event per each user ID
           await immediateRateLimiter.consume(socket.id); // do this for immediate stuff (no spamming every 0.1 seconds)
-          io.emit("client receive message", msg); // Emit it to everyone else!
         } catch (rejRes) {
           // No available points to consume
           // Emit error or warning message
@@ -335,17 +334,22 @@ io.on("connection", (socket: Socket) => {
             message_content: msg.messageContent,
             message_image_url: msg.messageImageUrl,
           })
-          .select("*");
+          .select("*,profiles(username,profile_image_url)")
+          .single();
 
         if (!data) {
           return;
         }
 
-        msg.messageId = data[0].message_id;
-        msg.messageContent = data[0].message_content;
+        msg.messageId = data.message_id;
+        msg.messageContent = data.message_content;
         msg.isEdited = false;
-        msg.messageTime = data[0].message_time;
-        msg.userUUID = data[0].user_uuid;
+        msg.messageTime = data.created_at;
+        msg.userUUID = data.user_uuid;
+        msg.userDisplayName = data.profiles.username;
+        msg.userProfilePicture = data.profiles.profile_image_url;
+
+        io.emit("client receive message", msg); // Emit it to everyone else!
 
         if (error) {
           console.error("Could not insert message: " + error);
