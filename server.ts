@@ -66,6 +66,7 @@ const mapData = (data: any) => {
 };
 
 let recentMessages: ChatMessage[] = [];
+const maxMessageContext = 10;
 let customPrompt: string | null = null;
 
 const getRecentMessagesForAI = async () => {
@@ -381,13 +382,13 @@ io.on("connection", (socket: Socket) => {
         } else {
           io.emit("client receive message", msg); // Emit it to everyone else!
           recentMessages.push(msg);
-          recentMessages.shift();
+          if (recentMessages.length > maxMessageContext) recentMessages.shift();
         }
       } else {
         console.log("sending message (Goofy Goober)!");
         io.emit("client receive message", msg); // Emit it to everyone else!
         recentMessages.push(msg);
-        recentMessages.shift();
+        if (recentMessages.length > maxMessageContext) recentMessages.shift();
       }
     }
   };
@@ -443,14 +444,14 @@ io.on("connection", (socket: Socket) => {
         }
 
         recentMessages.push(msg);
-        recentMessages.shift();
+        if (recentMessages.length > maxMessageContext) recentMessages.shift();
 
         SendMessageToAiIfNeeded(msg);
       } else {
         console.log("sending message!");
         io.emit("client receive message", msg); // Emit it to everyone else!
         recentMessages.push(msg);
-        recentMessages.shift();
+        if (recentMessages.length > maxMessageContext) recentMessages.shift();
 
         SendMessageToAiIfNeeded(msg);
       }
@@ -637,14 +638,14 @@ app.post("/upload", upload.single("image"), async (req, res) => {
           io.emit("client receive message", message); // Emit it to everyone else!
           message.messageContent = "IMAGE";
           recentMessages.push(message);
-          recentMessages.shift();
+          if (recentMessages.length > maxMessageContext) recentMessages.shift();
         }
       } else {
         console.log("Image uploaded: " + img.data.url);
         io.emit("client receive message", message); // Emit it to everyone else!
         message.messageContent = "IMAGE";
         recentMessages.push(message);
-        recentMessages.shift();
+        if (recentMessages.length > maxMessageContext) recentMessages.shift();
       }
 
       res.sendStatus(201);

@@ -55,22 +55,6 @@ const SendMessageToAI = async (
 
   const active_prompt =
     custom_system_prompt === null ? system_prompt : custom_system_prompt;
-  console.log("Active prompt: " + active_prompt);
-  console.log(
-    recentMessages.map((message) => {
-      if (message.userDisplayName === "Goofy Goober") {
-        return {
-          role: "assistant" as const,
-          content: message.messageContent,
-        };
-      }
-
-      return {
-        role: "user" as const,
-        content: `${message.userDisplayName}: ${message.messageContent}`,
-      };
-    })
-  );
 
   try {
     const chatCompletion = await client.chat.completions.create({
