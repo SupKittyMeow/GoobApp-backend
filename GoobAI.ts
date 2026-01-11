@@ -71,9 +71,15 @@ const SendMessageToAI = async (
             };
           }
 
+          const messageDate = new Date(message.messageTime);
           return {
             role: "user" as const,
-            content: `${message.userDisplayName}: ${message.messageContent}`,
+            content: `${message.userDisplayName} - ${
+              message.userRole
+            } - ${messageDate.toLocaleString(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}: ${message.messageContent}`,
           };
         }),
       ],
