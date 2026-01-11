@@ -22,7 +22,6 @@ const corsOptions = {
     "https://goobapp.pages.dev",
     "https://goobapp.org",
     "https://www.goobapp.org",
-    "https://goobapp-ac3e95.gitlab.io/",
     "http://localhost:5173", // For development
   ],
   methods: ["GET", "POST", "OPTIONS"],
