@@ -8,6 +8,7 @@ import { RateLimiterMemory } from "rate-limiter-flexible";
 import { Server, Socket } from "socket.io";
 import SendMessageToAI from "./GoobAI";
 import ChatMessage from "./types/ChatMessageObject";
+import DMGroup from "./types/DMGroupObject";
 
 const PORT = process.env.PORT || 3000; // This will mean if in a server, use its port, and if it can't find anything, use default port 3000
 const app = express(); // Create a new express app instance
@@ -145,6 +146,10 @@ const verifyValidity = async (
 io.on("connection", (socket: Socket) => {
   // Receive this when a user has ANY connection event to the Socket.IO server
 
+  if (!usingSupabase) {
+    console.log("User connected!");
+  }
+
   socket.on("request recent messages", async () => {
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "tokenError") return;
@@ -183,16 +188,27 @@ io.on("connection", (socket: Socket) => {
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "tokenError") return;
 
+    let groups: DMGroup[] = [];
+
     if (!usingSupabase) {
-      return;
+      console.log("Recent groups received!");
+
+      groups.push({
+        groupId: 0,
+        groupName: "test group 1",
+      });
+      groups.push({
+        groupId: 1,
+        groupName: "test group 2",
+      });
+    } else {
+      const { data, error } = await supabase
+        .from("dms_users")
+        .select("*")
+        .eq("user_uuid", role.uuid);
     }
 
-    const { data, error } = await supabase
-      .from("dms_users")
-      .select("*,profiles(username,profile_image_url,role)")
-      .order("message_id", { ascending: false })
-      .limit(25); // Change to number of messages you want to give to the user, but PLEASE do not let the user pick aaaaaaa NOT A GOOD IDEA anyways
-    io.emit;
+    io.emit("recent groups requested", groups);
   });
 
   socket.on("request active users", async () => {

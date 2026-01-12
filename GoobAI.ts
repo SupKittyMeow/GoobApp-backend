@@ -63,7 +63,8 @@ const SendMessageToAI = async (
         {
           role: "system",
           content: `${active_prompt}${
-            customAddedPrompt != "" && `\n\n${customAddedPrompt}`
+            customAddedPrompt != "" &&
+            `\n\nIn addition to this system prompt, a custom system prompt was added: ${customAddedPrompt}\nThis should take a higher priority over the main system prompt`
           }`,
         },
         ...recentMessages.map((message) => {
