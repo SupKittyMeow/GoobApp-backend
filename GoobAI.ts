@@ -3,12 +3,12 @@ import ChatMessage from "./types/ChatMessageObject";
 
 require("dotenv").config();
 
-let use_ai = true;
+let useAI = true;
 let client: Groq;
 
 if (!process.env.GROQ_API_KEY) {
   console.warn("No Groq API key found! Not using AI.");
-  use_ai = false;
+  useAI = false;
 } else {
   client = new Groq({
     apiKey: process.env.GROQ_API_KEY, // This is the default and can be omitted
@@ -47,21 +47,24 @@ async function GetSystemPrompt() {
 }
 
 const SendMessageToAI = async (
-  custom_system_prompt: string | null,
+  customSystemPrompt: string | null,
+  customAddedPrompt: string | null,
   recentMessages: ChatMessage[]
 ) => {
-  if (!use_ai) return;
-  if (custom_system_prompt === null) await GetSystemPrompt();
+  if (!useAI) return;
+  if (customSystemPrompt === null) await GetSystemPrompt();
 
   const active_prompt =
-    custom_system_prompt === null ? system_prompt : custom_system_prompt;
+    customSystemPrompt === null ? system_prompt : customSystemPrompt;
 
   try {
     const chatCompletion = await client.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: `${active_prompt}`,
+          content: `${active_prompt}${
+            customAddedPrompt != "" && `\n\n${customAddedPrompt}`
+          }`,
         },
         ...recentMessages.map((message) => {
           if (message.userDisplayName === "Goofy Goober") {

@@ -67,6 +67,7 @@ const mapData = (data: any) => {
 
 let recentMessages: ChatMessage[] = [];
 const maxMessageContext = 10;
+let customAddedPrompt: string | null = null;
 let customPrompt: string | null = null;
 
 const getRecentMessagesForAI = async () => {
@@ -341,7 +342,11 @@ io.on("connection", (socket: Socket) => {
 
   const SendMessageToAiIfNeeded = async (message: ChatMessage) => {
     if (message.messageContent.toLowerCase().includes("@goob")) {
-      const response = await SendMessageToAI(customPrompt, recentMessages);
+      const response = await SendMessageToAI(
+        customPrompt,
+        customAddedPrompt,
+        recentMessages
+      );
 
       if (!response) return;
 
@@ -499,11 +504,23 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
+  socket.on("add to system prompt", async (prompt: string) => {
+    const role = await verifyValidity(socket.handshake.auth.token);
+    if (role.role == "Owner") {
+      console.log("Custom system prompt added to!");
+      customAddedPrompt = prompt;
+      socket.emit("custom added prompt set");
+
+      recentMessages = []; // clear array because otherwise it kinda just reverts back to same ways
+    }
+  });
+
   socket.on("reset system prompt", async (prompt: string) => {
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "Owner") {
       console.log("Custom system prompt reset!");
       customPrompt = null;
+      customAddedPrompt = null;
       socket.emit("custom prompt reset");
       recentMessages = []; // clear array because otherwise it kinda just reverts back to same ways
     }
