@@ -179,6 +179,22 @@ io.on("connection", (socket: Socket) => {
     socket.emit("receive recent messages", formattedData);
   });
 
+  socket.on("request recent groups", async () => {
+    const role = await verifyValidity(socket.handshake.auth.token);
+    if (role.role == "tokenError") return;
+
+    if (!usingSupabase) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("dms_users")
+      .select("*,profiles(username,profile_image_url,role)")
+      .order("message_id", { ascending: false })
+      .limit(25); // Change to number of messages you want to give to the user, but PLEASE do not let the user pick aaaaaaa NOT A GOOD IDEA anyways
+    io.emit;
+  });
+
   socket.on("request active users", async () => {
     const role = await verifyValidity(socket.handshake.auth.token);
     if (role.role == "tokenError") return;
@@ -398,6 +414,13 @@ io.on("connection", (socket: Socket) => {
     }
   };
 
+  socket.on("started typing", async (usr: UserProfile) => {
+    const user = await verifyValidity(socket.handshake.auth.token);
+    if (user.role == "tokenError") return;
+
+    socket.emit("started typing", usr.username);
+  }); // TODO: currently unused
+
   socket.on("message sent", async (msg: ChatMessage) => {
     // Received when the "message sent" gets called from a client
 
@@ -541,6 +564,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
   if (!file) {
     if (!usingSupabase) console.log("No file!");
+    console.error("no file");
     res.sendStatus(400); // error 400: can't understand request
     return;
   }
@@ -549,6 +573,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
   if (usingSupabase) {
     const socketToken = req.headers.authorization;
     if (!socketToken || socketToken.trim() == "") {
+      console.error("no token");
       res.sendStatus(400); // error 400: can't understand request
       return;
     }
