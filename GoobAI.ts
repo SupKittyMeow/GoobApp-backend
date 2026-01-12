@@ -88,11 +88,11 @@ const SendMessageToAI = async (
       ],
       model: "moonshotai/kimi-k2-instruct-0905",
       temperature: 0.6,
-      max_completion_tokens: 4096,
+      max_completion_tokens: 300,
       top_p: 1,
       stream: false,
     });
-    return chatCompletion.choices[0].message.content;
+    return chatCompletion.choices[0].message.content?.slice(0, 1200);
   } catch (Error) {
     return "Sorry, an error occurred :goob:";
   }
